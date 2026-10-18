@@ -69,4 +69,5 @@ build.config.json   参与构建的 mod 列表与额外产物（如 etn_coop_eas
 
 ## 许可
 
-TODO: 待定（仓库暂无 LICENSE）。第三方组件（如后续 `tools/` 下的 EasyTier）按其自身许可分发，见各 mod 的 NOTICE。
+本仓代码以 [MIT](LICENSE) 发布（Copyright © 2026 KFACBT）。
+随包分发的第三方组件按其自身许可分发：EasyTier 为 LGPL-3.0，声明与全文见 [`vendor/easytier/notice/`](vendor/easytier/notice/)。
