@@ -24,6 +24,10 @@ jobs:
           Expand-Archive godot.zip -DestinationPath godot
           Get-ChildItem -Recurse godot -Filter "*.exe" | Select-Object -ExpandProperty FullName
 
+      - name: 准备 EasyTier 二进制
+        shell: pwsh
+        run: .\tools\fetch-easytier.ps1
+
       - name: 打包
         shell: pwsh
         run: |
