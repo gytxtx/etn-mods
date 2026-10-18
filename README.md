@@ -5,7 +5,7 @@
 | Mod | 目录 | 说明 |
 |---|---|---|
 | `etn_trainer` | [`mods/etn_trainer/`](mods/etn_trainer/) | 内置修改器，F1 开关 |
-| `etn_coop_easytier` | *待迁入* | 官方联机 Mod 的可选组网拓展（依赖 `etn_coop`） |
+| `etn_coop_easytier` | [`mods/etn_coop_easytier/`](mods/etn_coop_easytier/) | 官方联机 Mod 的可选组网拓展（依赖 `etn_coop`），随包分发 EasyTier 官方二进制 |
 
 ## 目录结构
 
@@ -22,8 +22,22 @@ build.config.json   参与构建的 mod 列表与额外产物（如 etn_coop_eas
 ## 依赖
 
 - **本体**：`v0.5.1.4` 及以上（`Game.version_number`），`ModAPI.VERSION = 2`。
+- **官方联机 Mod**：`etn_coop`（仅 `etn_coop_easytier` 需要，扩展接口 v1）。
 - **Godot**：`4.7-stable`（pck 版本必须与本体一致）。
 - 构建**不需要**本体工程，也不需要导出模板。
+
+## 第三方二进制（仅 etn_coop_easytier）
+
+`etn_coop_easytier` 随包分发 EasyTier 官方可执行文件，构建前先取二进制：
+
+```powershell
+.\tools\fetch-easytier.ps1                                            # 联网下载 v2.6.4 并校验 SHA-256
+.\tools\fetch-easytier.ps1 -FromDir E:\tools\easytier-windows-x86_64  # 用本地已解压目录
+```
+
+- 二进制落在 `vendor/easytier/windows-x86_64/`（**不入库**，`.gitignore` 已排除）。
+- 版本、URL、SHA-256 固定在 `vendor/easytier/tools.json`；许可全文与 NOTICE 入库在 `vendor/easytier/notice/`。
+- 打包时由 `build.config.json` 的 `bundle` 拷进 zip 的 `tools/easytier-windows-x86_64/`：安装器把整个 zip 解到 `user://mods/<id>/`，后端在该目录查找二进制。
 
 ## 构建
 

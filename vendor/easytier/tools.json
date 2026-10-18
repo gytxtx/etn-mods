@@ -1,0 +1,24 @@
+{
+  "easytier_version": "2.6.4",
+  "release_tag": "v2.6.4",
+  "repository": "https://github.com/EasyTier/EasyTier",
+  "license": "LGPL-3.0",
+  "license_file": "LICENSE.easytier",
+  "notice_file": "EASYTIER_NOTICE.md",
+  "note": "运行时以子进程方式调用，未修改、未链接；随包分发官方发布的可执行文件。",
+  "platforms": {
+    "windows-x86_64": {
+      "asset": "easytier-windows-x86_64-v2.6.4.zip",
+      "url": "https://github.com/EasyTier/EasyTier/releases/download/v2.6.4/easytier-windows-x86_64-v2.6.4.zip",
+      "dir": "easytier-windows-x86_64",
+      "files": {
+        "easytier-core.exe": "DA7EB2D24B5416F3D3407636949E964A0750E3F9DC53A828CB6799A57EAD445D",
+        "easytier-cli.exe": "D8783E851E944B44A9B71B39FD02F227EC0A2A82B3165C55EAD5DD32DCDE53A1",
+        "wintun.dll": "E5DA8447DC2C320EDC0FC52FA01885C103DE8C118481F683643CACC3220DAFCE",
+        "Packet.dll": "C7C03A87EAC7243CCBE331554624B18803010B740E311FC8CFDDB573096EACAC",
+        "WinDivert64.sys": "8DA085332782708D8767BCACE5327A6EC7283C17CFB85E40B03CD2323A90DDC2"
+      },
+      "required_note": "官方 Windows 版即使 --no-tun 也会在启动时加载同目录 DLL；缺 wintun.dll 会以 0xC0000135 (STATUS_DLL_NOT_FOUND) 秒退，必须一并分发。"
+    }
+  }
+}

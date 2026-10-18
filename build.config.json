@@ -4,6 +4,19 @@
     {
       "dir": "etn_trainer",
       "bundle": []
+    },
+    {
+      "dir": "etn_coop_easytier",
+      "bundle": [
+        {
+          "from": "vendor/easytier/windows-x86_64",
+          "to": "tools/easytier-windows-x86_64"
+        },
+        {
+          "from": "vendor/easytier/notice",
+          "to": "tools/easytier-windows-x86_64"
+        }
+      ]
     }
   ]
 }

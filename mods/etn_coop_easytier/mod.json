@@ -1,0 +1,11 @@
+{
+  "id": "etn_coop_easytier",
+  "name": "ETN Coop · EasyTier 拓展",
+  "version": "0.1.0",
+  "author": "SH、KFACBT",
+  "description": "官方 ETN Coop 联机 Mod 的可选组网拓展：桌面管理 EasyTier 组网，Android 提供外置客户端配置与 LAN 加入引导。需官方联机拓展接口 v1。",
+  "api_version": 1,
+  "game_version": "v0.5.1.2-test",
+  "dependencies": ["etn_coop"],
+  "entry": "res://mods/etn_coop_easytier/entry/easytier_entry.gd"
+}
