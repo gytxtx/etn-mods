@@ -23,3 +23,14 @@ mono_crash.*.json
 *.exe
 # Uncomment if your project does not version PCK files as runtime dependencies.
 # *.pck
+
+# 构建产物
+dist/
+
+# 后续接入 etn_coop_easytier 时：第三方二进制由 tools/fetch-easytier.ps1 下载，不入库
+vendor/easytier/**/.tools/
+.tools/
+
+# 临时/系统
+Thumbs.db
+desktop.ini
