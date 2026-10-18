@@ -1,5 +1,11 @@
 # Changelog
 
+## etn_coop_easytier 0.1.1
+
+- 适配官方联机菜单 2026-10-18 的卡片化 UI：页面不再自带 `ScrollContainer`，改为内容高度的卡片容器，随官方 `PageScroll` 滚动
+- 房间码 / 高级选项 / 连接改为卡片布局，沿用官方字体与控件主题；复制与校验提示显示在对应卡片内
+- Android 外置页同步卡片化，改用官方滚动区处理触屏拖动
+
 ## etn_coop_easytier 0.1.0
 
 从《Enter The Nyangeon》主仓分支 `feat/coop-easytier-extension` 迁入（源码、构建脚本与许可声明）。

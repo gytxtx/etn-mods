@@ -4,8 +4,6 @@ extends Node
 const Backend := preload("res://mods/etn_coop_easytier/net/easytier_backend.gd")
 const Page := preload("res://mods/etn_coop_easytier/ui/easytier_page.gd")
 const ExternalPage := preload("res://mods/etn_coop_easytier/ui/easytier_external_page.gd")
-const ExternalMenuPage := preload("res://mods/etn_coop_easytier/ui/easytier_external_menu_page.gd")
-const UIStyle := preload("res://mods/etn_coop_easytier/ui/ui_style.gd")
 const I18n := preload("res://mods/etn_coop_easytier/i18n/easytier_i18n.gd")
 const RoomCode := preload("res://mods/etn_coop_easytier/net/room_code.gd")
 const ID := "etn_coop_easytier"
@@ -14,7 +12,6 @@ signal failed(message: String)
 var menu_title := "EasyTier"
 var _api: Node
 var _backend: Node
-var _page: VBoxContainer
 var _room_code := ""
 
 func _ready() -> void:
@@ -88,20 +85,11 @@ func _on_prepared(endpoint: Dictionary) -> void:
 
 func create_menu_page() -> Control:
 	# 页面归官方菜单持有，后端仍归 entry 持有；隐藏/释放 UI 不停止连接。
-	var box := ScrollContainer.new()
-	box.name = "EasyTierPage"
-	box.theme = UIStyle.get_theme()
-	box.set_script(ExternalMenuPage if uses_external_client() else preload("res://mods/etn_coop_easytier/ui/easytier_menu_page.gd"))
-	box.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	box.follow_focus = true
-	box.mouse_filter = Control.MOUSE_FILTER_STOP
-	# 整页占用菜单剩余高度，所有表单内容和操作按钮一起滚动。
-	box.size_flags_stretch_ratio = 4.0
-	_page = ExternalPage.new() if uses_external_client() else Page.new()
-	_page.name = "Form"
-	_page.controller = self
-	box.add_child(_page)
-	return box
+	# 官方 PageScroll 统一滚动：只返回内容高度的普通容器，不再自套滚动区或固定高度。
+	var page: VBoxContainer = ExternalPage.new() if uses_external_client() else Page.new()
+	page.name = "EasyTierPage"
+	page.controller = self
+	return page
 
 func _exit_tree() -> void:
 	stop()

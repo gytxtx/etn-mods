@@ -1,98 +1,108 @@
 extends RefCounted
 
-## Mod 自带主题，避免要求旧版本体提供新版 settings_theme.tres。
-const ACCENT := Color(0.36, 0.88, 0.57)
-const TEXT := Color(0.91, 0.93, 0.90)
-const MUTED := Color(0.59, 0.65, 0.61)
+## 与官方联机菜单（2026-10-18 卡片化布局）一致的样式助手。
+## 页面挂在官方菜单的 PageContent 下，字体与按钮/输入框样式继承官方 coop_theme；
+## 这里只补卡片、分隔线、说明文字与语义色，避免自带整套主题造成两套观感。
 
-static func box(background: Color, border: Color, padding: float = 6.0) -> StyleBoxFlat:
+# 与官方联机菜单状态栏一致的语义色（OK / DANGER）。
+const ACCENT := Color(0.2, 0.9, 0.35)
+const ERROR := Color(0.95, 0.18, 0.12)
+const CARD_BG := Color(0.101961, 0.101961, 0.101961)
+const CARD_BORDER := Color(0.223529, 0.223529, 0.223529)
+const TEXT := Color(1, 1, 1)
+const SECTION := Color(0.819608, 0.819608, 0.819608)
+const DIM := Color(0.74902, 0.780392, 0.764706)
+
+const SECTION_FONT_SIZE := 12
+const ROW_FONT_SIZE := 11
+const NOTE_FONT_SIZE := 9
+const CONTROL_HEIGHT := 26.0
+const LABEL_WIDTH := 132.0
+
+
+## 返回 {panel, content}：panel 用于整卡显隐，content 用于填充内容。
+static func card(parent: Container, title_key: String) -> Dictionary:
+	var panel := PanelContainer.new()
+	panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var style := StyleBoxFlat.new()
-	style.bg_color = background
-	style.border_color = border
+	style.bg_color = CARD_BG
+	style.border_color = CARD_BORDER
 	style.set_border_width_all(1)
-	style.set_corner_radius_all(2)
-	style.content_margin_left = padding
-	style.content_margin_right = padding
-	style.content_margin_top = 4
-	style.content_margin_bottom = 4
-	return style
+	style.content_margin_left = 6.0
+	style.content_margin_top = 6.0
+	style.content_margin_right = 6.0
+	style.content_margin_bottom = 6.0
+	style.anti_aliasing = false
+	panel.add_theme_stylebox_override("panel", style)
+	parent.add_child(panel)
 
-static func get_theme() -> Theme:
-	var _theme := Theme.new()
-	_theme.default_font = preload("res://fonts/BoutiqueBitmap9x9_Bold_1.9.ttf")
-	_theme.default_font_size = 11
-	var normal := box(Color(0.12, 0.12, 0.12), Color(0.27, 0.27, 0.27))
-	var hover := box(Color(0.19, 0.19, 0.19), ACCENT.darkened(0.3))
-	var pressed := box(ACCENT, ACCENT)
-	var focus := box(Color.TRANSPARENT, ACCENT)
-	focus.draw_center = false
-	focus.set_border_width_all(2)
-	for type in ["Button", "CheckButton"]:
-		_theme.set_stylebox("normal", type, normal)
-		_theme.set_stylebox("hover", type, hover)
-		_theme.set_stylebox("pressed", type, pressed)
-		_theme.set_stylebox("hover_pressed", type, pressed)
-		_theme.set_stylebox("disabled", type, normal)
-		_theme.set_stylebox("focus", type, focus)
-		_theme.set_color("font_color", type, TEXT)
-		_theme.set_color("font_hover_color", type, TEXT)
-		_theme.set_color("font_pressed_color", type, Color(0.04, 0.13, 0.08))
-		_theme.set_color("font_hover_pressed_color", type, Color(0.04, 0.13, 0.08))
-		_theme.set_color("font_disabled_color", type, MUTED)
-		_theme.set_constant("outline_size", type, 0)
-	_theme.set_stylebox("normal", "LineEdit", box(Color(0.065, 0.065, 0.065), Color(0.27, 0.27, 0.27)))
-	_theme.set_stylebox("focus", "LineEdit", focus)
-	_theme.set_color("font_color", "LineEdit", TEXT)
-	_theme.set_color("font_placeholder_color", "LineEdit", MUTED)
-	_theme.set_color("caret_color", "LineEdit", ACCENT)
-	_theme.set_color("selection_color", "LineEdit", Color(0.16, 0.38, 0.25))
-	_theme.set_color("font_color", "Label", TEXT)
-	_theme.set_color("font_uneditable_color", "LineEdit", MUTED)
-	_theme.set_stylebox("read_only", "LineEdit", box(Color(0.08, 0.08, 0.08), Color(0.20, 0.20, 0.20)))
-	_theme.set_type_variation("CoopCard", "PanelContainer")
-	var card := box(Color(0.075, 0.105, 0.088), Color(0.17, 0.24, 0.195), 10)
-	card.content_margin_top = 9
-	card.content_margin_bottom = 9
-	_theme.set_stylebox("panel", "CoopCard", card)
-	_theme.set_type_variation("CoopSurface", "PanelContainer")
-	_theme.set_stylebox("panel", "CoopSurface", StyleBoxEmpty.new())
-	_theme.set_type_variation("CoopPrimary", "Button")
-	_theme.set_stylebox("normal", "CoopPrimary", box(ACCENT, ACCENT, 10))
-	_theme.set_stylebox("hover", "CoopPrimary", box(ACCENT.lightened(0.12), ACCENT.lightened(0.12), 10))
-	_theme.set_stylebox("pressed", "CoopPrimary", box(ACCENT.darkened(0.2), ACCENT.darkened(0.2), 10))
-	_theme.set_color("font_color", "CoopPrimary", Color(0.035, 0.10, 0.06))
-	_theme.set_color("font_hover_color", "CoopPrimary", Color(0.035, 0.10, 0.06))
-	_theme.set_type_variation("CoopTab", "Button")
-	var active := box(Color(0.12, 0.23, 0.16), Color(0.12, 0.23, 0.16), 10)
-	active.border_color = ACCENT
-	active.set_border_width_all(0)
-	active.border_width_left = 3
-	_theme.set_stylebox("normal", "CoopTab", box(Color(0.075, 0.105, 0.088), Color(0.075, 0.105, 0.088), 10))
-	_theme.set_stylebox("pressed", "CoopTab", active)
-	_theme.set_stylebox("hover_pressed", "CoopTab", active)
-	_theme.set_color("font_pressed_color", "CoopTab", ACCENT)
-	_theme.set_color("font_hover_pressed_color", "CoopTab", ACCENT)
-	_theme.set_color("font_color", "CoopTab", MUTED)
-	_theme.set_constant("outline_size", "Label", 0)
-	_theme.set_constant("shadow_offset_x", "Label", 0)
-	_theme.set_constant("shadow_offset_y", "Label", 0)
-	var track := box(Color(0.08, 0.08, 0.08), Color(0.27, 0.27, 0.27), 0)
-	track.content_margin_top = 2
-	track.content_margin_bottom = 2
-	_theme.set_stylebox("slider", "HSlider", track)
-	_theme.set_stylebox("grabber_area", "HSlider", box(ACCENT.darkened(0.3), ACCENT.darkened(0.3), 0))
-	_theme.set_stylebox("grabber_area_highlight", "HSlider", box(ACCENT, ACCENT, 0))
-	var grabber := GradientTexture2D.new()
-	grabber.width = 8
-	grabber.height = 12
-	var gradient := Gradient.new()
-	gradient.colors = PackedColorArray([ACCENT, ACCENT])
-	grabber.gradient = gradient
-	_theme.set_icon("grabber", "HSlider", grabber)
-	_theme.set_icon("grabber_highlight", "HSlider", grabber)
-	var scroll_track := box(Color(0.08, 0.08, 0.08), Color(0.08, 0.08, 0.08), 3)
-	_theme.set_stylebox("scroll", "VScrollBar", scroll_track)
-	_theme.set_stylebox("grabber", "VScrollBar", normal)
-	_theme.set_stylebox("grabber_highlight", "VScrollBar", hover)
-	_theme.set_stylebox("grabber_pressed", "VScrollBar", pressed)
-	return _theme
+	var box := VBoxContainer.new()
+	box.add_theme_constant_override("separation", 4)
+	box.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	panel.add_child(box)
+
+	var header := Label.new()
+	header.text = title_key
+	header.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	header.add_theme_font_size_override("font_size", SECTION_FONT_SIZE)
+	header.add_theme_color_override("font_color", SECTION)
+	box.add_child(header)
+
+	var divider := ColorRect.new()
+	divider.custom_minimum_size = Vector2(0, 1)
+	divider.color = CARD_BORDER
+	divider.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	box.add_child(divider)
+
+	var content := VBoxContainer.new()
+	content.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	content.add_theme_constant_override("separation", 4)
+	content.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	box.add_child(content)
+	return {"panel": panel, "content": content}
+
+
+static func note(parent: Container, text: String = "") -> Label:
+	var label := Label.new()
+	label.text = text
+	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	label.add_theme_font_size_override("font_size", NOTE_FONT_SIZE)
+	label.add_theme_color_override("font_color", DIM)
+	parent.add_child(label)
+	return label
+
+
+static func row(parent: Container, separation: int = 6) -> HBoxContainer:
+	var line := HBoxContainer.new()
+	line.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	line.add_theme_constant_override("separation", separation)
+	line.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	parent.add_child(line)
+	return line
+
+
+static func row_label(parent: Container, text: String) -> Label:
+	var label := Label.new()
+	label.text = text
+	label.custom_minimum_size = Vector2(LABEL_WIDTH, CONTROL_HEIGHT)
+	label.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	label.add_theme_font_size_override("font_size", ROW_FONT_SIZE)
+	label.add_theme_color_override("font_color", TEXT)
+	parent.add_child(label)
+	return label
+
+
+static func line_edit(parent: Container) -> LineEdit:
+	var input := LineEdit.new()
+	input.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	input.custom_minimum_size = Vector2(0, CONTROL_HEIGHT)
+	input.mouse_filter = Control.MOUSE_FILTER_PASS
+	parent.add_child(input)
+	return input

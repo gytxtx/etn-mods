@@ -61,6 +61,9 @@ const MESSAGES := {
 	"coop_status_et_timeout_failed": {"zh_CN":"EasyTier 组网超时：检查入口可达性、名称、密码及房主 IP","en":"EasyTier timed out: check entry reachability, name, password and host IP","pt":"EasyTier expirou: verifique acesso ao nó, nome, senha e IP do host","vi_VN":"EasyTier quá hạn: kiểm tra nút kết nối, tên, mật khẩu và IP chủ phòng"},
 	"coop_status_et_duplicate_failed": {"zh_CN":"EasyTier 虚拟 IP 重复，请为每位客机分配不同地址","en":"Duplicate virtual IP; assign each client a unique address","pt":"IP virtual duplicado; atribua endereço exclusivo a cada cliente","vi_VN":"IP ảo bị trùng; đặt địa chỉ riêng cho mỗi khách"},
 	"coop_status_et_transport_failed": {"zh_CN":"EasyTier 已组网，但游戏 UDP 连接创建失败；检查端口占用","en":"EasyTier connected but game UDP setup failed; check port usage","pt":"EasyTier conectado, mas UDP do jogo falhou; verifique uso da porta","vi_VN":"EasyTier đã nối nhưng tạo UDP trò chơi thất bại; kiểm tra cổng"},
+	"coop_et_connection": {"zh_CN": "连接", "en": "Connection", "pt": "Conexão", "vi_VN": "Kết nối"},
+	"coop_et_external_parameters": {"zh_CN": "外置客户端参数", "en": "External client settings", "pt": "Parâmetros do cliente externo", "vi_VN": "Thông số ứng dụng ngoài"},
+	"coop_et_lan_address": {"zh_CN": "LAN 加入地址", "en": "LAN join address", "pt": "Endereço LAN", "vi_VN": "Địa chỉ tham gia LAN"},
 }
 
 static func install() -> void:
