@@ -1,9 +1,9 @@
 {
   "id": "etn_trainer",
   "name": "Trainer",
-  "version": "0.2.3",
+  "version": "0.3.0",
   "author": "KFACBT",
-  "description": "内置修改器：数值倍率 / 资源 / 解锁 / 辅助 / 调试。F1 开关。",
+  "description": "内置修改器：数值倍率 / 资源 / 解锁 / 辅助 / 调试。F1 或右上角「修改器」按钮开关，支持触屏。",
   "entry": "res://mods/etn_trainer/entry/trainer_entry.gd",
   "api_version": 2,
   "game_version": "v0.5.1.4",

@@ -4,7 +4,7 @@
 
 | Mod | 目录 | 说明 |
 |---|---|---|
-| `etn_trainer` | [`mods/etn_trainer/`](mods/etn_trainer/) | 内置修改器，F1 开关 |
+| `etn_trainer` | [`mods/etn_trainer/`](mods/etn_trainer/) | 内置修改器，F1 / 右上角按钮开关（支持触屏） |
 | `etn_coop_easytier` | [`mods/etn_coop_easytier/`](mods/etn_coop_easytier/) | 官方联机 Mod 的可选组网拓展（依赖 `etn_coop`），随包分发 EasyTier 官方二进制 |
 
 ## 目录结构

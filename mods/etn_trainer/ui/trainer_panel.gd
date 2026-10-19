@@ -8,8 +8,9 @@ extends CanvasLayer
 ## 所以所有尺寸/字号都按 640x360 设计，面板必须小于该视口。
 
 const CoreScript := preload("res://mods/etn_trainer/core/trainer_core.gd")
+const TouchScrollScript := preload("res://mods/etn_trainer/ui/touch_scroll.gd")
 
-const MOD_VERSION := "0.2.3"
+const MOD_VERSION := "0.3.0"
 
 ## [key, 页签文字, 页面副标题]
 const TABS := [
@@ -47,7 +48,10 @@ const F_SMALL := 8
 const F_MICRO := 7
 
 const FOOTER_HINT := "F1 开关 · Esc 关闭 · 1–6 切页 · 拖拽标题栏移动"
+const FOOTER_HINT_MOBILE := "点按页签切页 · 拖动标题栏移动 · 点「关闭」退出"
 
+## 移动端：由 entry 在 `_ready` 之前按 `OS.has_feature("mobile")` 赋值。
+var mobile: bool = false
 var core: Node = null
 var hud: CanvasLayer = null
 
@@ -125,6 +129,8 @@ var _external_lock: bool = false
 var _prev_mouse: int = Input.MOUSE_MODE_VISIBLE
 var _dragging: bool = false
 var _drag_off: Vector2 = Vector2.ZERO
+var _drag_touch_index: int = -1
+var _slider_touch_index: int = -1
 var _tick: float = 0.0
 var _last_locked: bool = false
 var _last_ingame: bool = false
@@ -142,6 +148,19 @@ func _ready() -> void:
 		if not core.cheats_reset.is_connected(_on_cheats_reset):
 			core.cheats_reset.connect(_on_cheats_reset)
 	get_viewport().size_changed.connect(_layout)
+
+
+## Android 返回键：面板打开时先关面板（本体会在同时刻发 pause，面板暂停时该事件被暂停锁挡掉）。
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_WM_GO_BACK_REQUEST and visible and _confirm_layer != null:
+		if _confirm_layer.visible:
+			_hide_confirm()
+		else:
+			close_panel()
+	elif what == NOTIFICATION_WM_WINDOW_FOCUS_OUT:
+		_slider_touch_index = -1
+		_drag_touch_index = -1
+		_dragging = false
 
 
 func _exit_tree() -> void:
@@ -267,16 +286,18 @@ func _build_header() -> void:
 	_status_text.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	chip_row.add_child(_status_text)
 
-	var keycap := PanelContainer.new()
-	keycap.add_theme_stylebox_override("panel", _sb(C_BLACK, C_LINE, 1, 5, 1, 5, 1))
-	keycap.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_header.add_child(keycap)
+	# 触屏没有 F1：隐藏键帽，入口在常驻 HUD 的「修改器」按钮。
+	if not mobile:
+		var keycap := PanelContainer.new()
+		keycap.add_theme_stylebox_override("panel", _sb(C_BLACK, C_LINE, 1, 5, 1, 5, 1))
+		keycap.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		_header.add_child(keycap)
 
-	var kl := Label.new()
-	kl.text = "F1"
-	kl.add_theme_font_size_override("font_size", F_MICRO)
-	kl.add_theme_color_override("font_color", C_MUTED)
-	keycap.add_child(kl)
+		var kl := Label.new()
+		kl.text = "F1"
+		kl.add_theme_font_size_override("font_size", F_MICRO)
+		kl.add_theme_color_override("font_color", C_MUTED)
+		keycap.add_child(kl)
 
 	var close := _button("关闭", "ghost", F_SMALL, 40, 18)
 	close.tooltip_text = "关闭面板（F1 / Esc）"
@@ -342,6 +363,12 @@ func _build_body() -> void:
 	_build_about_page()
 	_build_overlay()
 
+	# 移动端：页面里的文字/卡片不再拦截触摸，拖到任意空白处都能滚动整页。
+	# 按钮、滑条、开关、输入框与嵌套滚动区保持原样。
+	if mobile:
+		for key in _pages.keys():
+			_page_passthrough(_pages[key])
+
 
 func _build_footer() -> void:
 	_col.add_child(_hline(1, C_LINE_SOFT))
@@ -352,7 +379,7 @@ func _build_footer() -> void:
 	_col.add_child(row)
 
 	_footer_hint = Label.new()
-	_footer_hint.text = FOOTER_HINT
+	_footer_hint.text = FOOTER_HINT_MOBILE if mobile else FOOTER_HINT
 	_footer_hint.add_theme_font_size_override("font_size", F_MICRO)
 	_footer_hint.add_theme_color_override("font_color", C_MUTED)
 	_footer_hint.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -478,19 +505,53 @@ func _build_overlay() -> void:
 # ============================================================ 构建 · 各页
 
 func _new_page(key: String) -> VBoxContainer:
-	var page := MarginContainer.new()
-	page.name = "Page_" + key
-	page.visible = false
-	page.add_theme_constant_override("margin_right", 1)
-	_pages_holder.add_child(page)
+	var holder: Control
+	if mobile:
+		# 移动端控件更高（触屏目标），内容会超过面板高度；每页独立纵向滚动。
+		var scroll = TouchScrollScript.new()
+		scroll.name = "PageScroll_" + key
+		scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+		scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+		_style_scroll(scroll)
+		_pages_holder.add_child(scroll)
+		holder = scroll
+	else:
+		var page := MarginContainer.new()
+		page.name = "Page_" + key
+		page.add_theme_constant_override("margin_right", 1)
+		_pages_holder.add_child(page)
+		holder = page
+	holder.visible = false
 
 	var box := VBoxContainer.new()
+	box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	box.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	box.add_theme_constant_override("separation", 4)
-	page.add_child(box)
+	holder.add_child(box)
 
-	_pages[key] = page
+	_pages[key] = holder
 	return box
+
+
+## 移动端触屏目标下限；桌面保持原有像素排版不变。
+func _tap(h: float) -> float:
+	return maxf(h, 22.0) if mobile else h
+
+
+## 把页面内非交互节点设为 MOUSE_FILTER_IGNORE，让触摸穿透到页面滚动区。
+## 交互控件（按钮 / 滑条 / 开关 / 输入框 / 嵌套滚动区）与其子树保持原样。
+func _page_passthrough(node: Node) -> void:
+	for child in node.get_children():
+		if child is ScrollContainer:
+			# 滚动区自身必须保持可接收触摸；只放宽其内容（如敌人列表的网格）。
+			_page_passthrough(child)
+			continue
+		if child is BaseButton or child is HSlider or child is LineEdit:
+			continue
+		if child is Control:
+			(child as Control).mouse_filter = Control.MOUSE_FILTER_IGNORE
+		_page_passthrough(child)
 
 
 func _page_header(box: VBoxContainer, title: String, desc: String) -> void:
@@ -716,6 +777,7 @@ func _build_currency_card(parent: Node, is_coin: bool) -> void:
 	edit.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	edit.custom_minimum_size = Vector2(0, 17)
 	_style_line_edit(edit)
+	_bind_edit_touch(edit)
 	custom.add_child(edit)
 
 	var add := _button("加", "chip", F_MICRO, 26, 17)
@@ -977,14 +1039,18 @@ func _build_debug_page() -> void:
 	_enemy_search.add_theme_font_size_override("font_size", F_SMALL)
 	_enemy_search.custom_minimum_size = Vector2(0, 18)
 	_style_line_edit(_enemy_search)
+	_bind_edit_touch(_enemy_search)
 	_enemy_search.text_changed.connect(_on_enemy_filter_changed)
 	p.add_child(_enemy_search)
 
 	var list_card := _card(p, 0)
 	list_card.get_parent().size_flags_vertical = Control.SIZE_EXPAND_FILL
+	if mobile:
+		# 页面本身可滚动：给敌人列表一个固定可视高度，内层仍独立滚动。
+		list_card.get_parent().custom_minimum_size = Vector2(0, 150)
 	list_card.add_theme_constant_override("separation", 2)
 
-	var scroll := ScrollContainer.new()
+	var scroll = TouchScrollScript.new()
 	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	_style_scroll(scroll)
@@ -1026,7 +1092,7 @@ func _build_about_page() -> void:
 	left.add_child(brand)
 
 	var desc := Label.new()
-	desc.text = "etn_trainer " + MOD_VERSION + " · F1 开关 · 联机会话只读"
+	desc.text = "etn_trainer " + MOD_VERSION + (" · 右上角按钮开关 · 联机会话只读" if mobile else " · F1 开关 · 联机会话只读")
 	desc.add_theme_font_size_override("font_size", F_MICRO)
 	desc.add_theme_color_override("font_color", C_MUTED)
 	left.add_child(desc)
@@ -1038,18 +1104,25 @@ func _build_about_page() -> void:
 	build_line.modulate.a = 0.8
 	left.add_child(build_line)
 
-	_section(left, "快捷键")
-	_key_hint(left, "F1", "打开 / 关闭面板")
-	_key_hint(left, "Esc", "关闭面板或取消确认")
-	_key_hint(left, "1 – 6", "切换页签")
-	_key_hint(left, "拖拽", "移动面板位置")
+	_section(left, "操作")
+	if mobile:
+		_key_hint(left, "按钮", "右上角「修改器」打开 / 关闭")
+		_key_hint(left, "页签", "点按切换页面")
+		_key_hint(left, "拖动", "标题栏移动面板 · 页面上下滑动")
+		_key_hint(left, "关闭", "面板右上角按钮")
+	else:
+		_key_hint(left, "F1", "打开 / 关闭面板")
+		_key_hint(left, "Esc", "关闭面板或取消确认")
+		_key_hint(left, "1 – 6", "切换页签")
+		_key_hint(left, "拖拽", "移动面板位置")
 
-	var f2 := Label.new()
-	f2.text = "F2 是本体内置作弊菜单（需 config.ini 开启 developer_mode），两者互不影响。"
-	f2.add_theme_font_size_override("font_size", F_MICRO)
-	f2.add_theme_color_override("font_color", C_MUTED)
-	f2.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	left.add_child(f2)
+	if not mobile:
+		var f2 := Label.new()
+		f2.text = "F2 是本体内置作弊菜单（需 config.ini 开启 developer_mode），两者互不影响。"
+		f2.add_theme_font_size_override("font_size", F_MICRO)
+		f2.add_theme_color_override("font_color", C_MUTED)
+		f2.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		left.add_child(f2)
 
 	_section(left, "说明")
 	var info := _card(left, 0)
@@ -1207,7 +1280,7 @@ func _card(parent: Node, min_height: float) -> VBoxContainer:
 func _button(text: String, kind: String, size: int, min_w: float, min_h: float) -> Button:
 	var b := Button.new()
 	b.text = text
-	b.custom_minimum_size = Vector2(min_w, min_h)
+	b.custom_minimum_size = Vector2(min_w, _tap(min_h))
 	b.focus_mode = Control.FOCUS_ALL
 	b.add_theme_font_size_override("font_size", size)
 	_style_button(b, kind)
@@ -1386,8 +1459,10 @@ func _slider_row(parent: Node, key: String, title: String, minv: float, maxv: fl
 	slider.value = 1.0 if key in ["speed", "fire", "damage", "pickup"] else 0.0
 	slider.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	slider.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	slider.custom_minimum_size = Vector2(80, 13)
+	slider.custom_minimum_size = Vector2(80, _tap(13))
 	_style_slider(slider)
+	# 触屏滑条：HSlider 原生只认鼠标，移动端按触点 x 直接映射。
+	slider.gui_input.connect(_on_slider_gui_input.bind(slider))
 	row.add_child(slider)
 
 	var value_label := Label.new()
@@ -1422,11 +1497,51 @@ func _style_slider(slider: HSlider) -> void:
 	slider.add_theme_icon_override("grabber_disabled", grabber)
 
 
+## 触屏滑块：项目关闭 emulate_mouse_from_touch，HSlider 原生不处理 ScreenTouch/Drag。
+## 触点 x 按整条滑轨宽度映射到值（按下即定位，拖动持续跟随）。
+func _on_slider_gui_input(event: InputEvent, slider: HSlider) -> void:
+	if event is InputEventScreenTouch:
+		var touch := event as InputEventScreenTouch
+		if touch.pressed:
+			if touch.canceled or _slider_touch_index != -1:
+				return
+			_slider_touch_index = touch.index
+			_apply_slider_touch(slider, touch.position.x)
+			slider.accept_event()
+		elif touch.index == _slider_touch_index:
+			_slider_touch_index = -1
+			slider.accept_event()
+	elif event is InputEventScreenDrag:
+		var drag := event as InputEventScreenDrag
+		if drag.index != _slider_touch_index:
+			return
+		_apply_slider_touch(slider, drag.position.x)
+		slider.accept_event()
+
+
+func _apply_slider_touch(slider: HSlider, x: float) -> void:
+	var width := maxf(1.0, slider.size.x)
+	var t := clampf(x / width, 0.0, 1.0)
+	var v := lerpf(slider.min_value, slider.max_value, t)
+	if slider.step > 0.0:
+		v = snappedf(v, slider.step)
+	slider.value = clampf(v, slider.min_value, slider.max_value)
+
+
+## 触屏点输入框：项目关闭 emulate_mouse_from_touch，LineEdit 自己不会聚焦，
+## 也不会弹出软键盘；按下时显式 grab_focus()（与官方 LAN 输入框同一做法）。
+func _bind_edit_touch(edit: LineEdit) -> void:
+	edit.gui_input.connect(func(event: InputEvent) -> void:
+		if event is InputEventScreenTouch and event.pressed and not event.canceled:
+			edit.grab_focus()
+	)
+
+
 func _check_row(parent: Node, key: String, title: String, on_change: Callable, size: int = F_BODY) -> CheckBox:
 	var c := CheckBox.new()
 	c.text = title
 	c.focus_mode = Control.FOCUS_ALL
-	c.custom_minimum_size = Vector2(0, 20)
+	c.custom_minimum_size = Vector2(0, _tap(20))
 	c.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	c.add_theme_font_size_override("font_size", size)
 	# 原生图标置空，改由子节点 TextureRect 画，才能单独微调垂直位置（对齐中文字形）。
@@ -2087,6 +2202,8 @@ func open_panel() -> void:
 			t.paused = true
 	if _tab_buttons.has(_current_tab):
 		_tab_buttons[_current_tab].grab_focus()
+	if hud != null and hud.has_method("set_panel_open"):
+		hud.set_panel_open(true)
 
 
 func close_panel() -> void:
@@ -2094,6 +2211,8 @@ func close_panel() -> void:
 		return
 	visible = false
 	_hide_confirm()
+	if hud != null and hud.has_method("set_panel_open"):
+		hud.set_panel_open(false)
 	Input.mouse_mode = _prev_mouse
 	if GameEvents.pause_lock.is_connected(_on_pause_lock):
 		GameEvents.pause_lock.disconnect(_on_pause_lock)
@@ -2140,22 +2259,45 @@ func _on_header_input(event: InputEvent) -> void:
 		if mb.button_index == MOUSE_BUTTON_LEFT:
 			if mb.pressed:
 				_dragging = true
+				_drag_touch_index = -1
 				_drag_off = get_viewport().get_mouse_position() - _panel.position
-			else:
+			elif _drag_touch_index == -1:
 				_dragging = false
 				core.panel_pos = _panel.position
 				core.save_prefs()
-	elif event is InputEventMouseMotion and _dragging:
-		var target: Vector2 = get_viewport().get_mouse_position() - _drag_off
-		var vp: Vector2 = get_viewport().get_visible_rect().size
-		_panel.position = Vector2(
-			clampf(target.x, -_panel.size.x + 40.0, vp.x - 40.0),
-			clampf(target.y, 0.0, vp.y - 20.0))
+	elif event is InputEventMouseMotion and _dragging and _drag_touch_index == -1:
+		_move_panel_to(get_viewport().get_mouse_position() - _drag_off)
+	elif event is InputEventScreenTouch:
+		var touch := event as InputEventScreenTouch
+		if touch.pressed:
+			if touch.canceled or _drag_touch_index != -1:
+				return
+			_dragging = true
+			_drag_touch_index = touch.index
+			_drag_off = _header_global_pos(touch.position) - _panel.position
+		elif touch.index == _drag_touch_index:
+			_dragging = false
+			_drag_touch_index = -1
+			core.panel_pos = _panel.position
+			core.save_prefs()
+	elif event is InputEventScreenDrag and event.index == _drag_touch_index:
+		_move_panel_to(_header_global_pos(event.position) - _drag_off)
+
+
+func _header_global_pos(local_pos: Vector2) -> Vector2:
+	return _header.get_global_transform_with_canvas() * local_pos
+
+
+func _move_panel_to(target: Vector2) -> void:
+	var vp: Vector2 = get_viewport().get_visible_rect().size
+	_panel.position = Vector2(
+		clampf(target.x, -_panel.size.x + 40.0, vp.x - 40.0),
+		clampf(target.y, 0.0, vp.y - 20.0))
 
 
 ## 面板本体吃掉点击，避免穿透到游戏
 func _on_panel_input(event: InputEvent) -> void:
-	if event is InputEventMouseButton:
+	if event is InputEventMouseButton or event is InputEventScreenTouch:
 		get_viewport().set_input_as_handled()
 
 
