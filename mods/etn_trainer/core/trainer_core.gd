@@ -8,6 +8,8 @@ extends Node
 
 signal state_changed
 signal notice(text: String)
+## 作弊值被整体重置（进入联机房间 / 手动关闭全部作弊）后发出，供面板同步控件。
+signal cheats_reset
 
 const CFG_PATH := "user://etn_trainer.cfg"
 
@@ -32,6 +34,7 @@ var panel_pos: Vector2 = Vector2(-99999.0, -99999.0)
 var hud_on: bool = false
 
 var _tick: float = 0.0
+var _lan_active: bool = false
 
 
 func setup() -> void:
@@ -76,11 +79,45 @@ func push_values() -> void:
 
 
 func _process(delta: float) -> void:
+	# 进入联机房间（is_lan_session 变为 true）时立即清空本局作弊，避免带进他人房间。
+	var lan: bool = is_locked()
+	if lan and not _lan_active:
+		_lan_active = true
+		reset_cheats(true, "已进入联机房间，作弊功能已重置")
+	elif not lan:
+		_lan_active = false
+
 	_tick += delta
 	if _tick < 0.5:
 		return
 	_tick = 0.0
 	_reassert()
+
+
+## 整体重置本局作弊：倍率、护甲、无敌、秒杀、内存 dev_mode，并重算玩家属性。
+func reset_cheats(notify: bool = false, reason: String = "已关闭全部作弊") -> void:
+	speed_mult = 1.0
+	fire_rate_mult = 1.0
+	damage_mult = 1.0
+	pickup_mult = 1.0
+	armor_cap = -1.0
+	armor_add = 0.0
+	invincible = false
+	one_hit_kill = false
+	Game.one_hit_kill = false
+	if not dev_mode_locked:
+		dev_mode_on = false
+		Game.dev_mode = false
+	var p = get_player()
+	if p != null:
+		var hc = p.get("health_component")
+		if hc != null:
+			hc.is_invincible = false
+	# 让本体重算属性：倍率归 1 后自然还原，并恢复原始护甲上限。
+	push_values()
+	cheats_reset.emit()
+	if notify:
+		notice.emit(reason)
 
 
 ## 每 0.5s 兜底：玩家节点重建 / 换角色后重新施加"开关型"作弊。
@@ -132,6 +169,40 @@ func get_enemy_manager() -> Node:
 
 func in_game() -> bool:
 	return get_player() != null
+
+
+## 当前玩家的一帧只读快照，供面板显示「实际数值」与生命条。
+func snapshot() -> Dictionary:
+	var p = get_player()
+	if p == null or not is_instance_valid(p):
+		return {}
+	var s = p.get("stats")
+	if s == null:
+		return {}
+	var out := {
+		"speed": int(s.MAX_SPEED),
+		"rpm": int(s.bullet_shoot_time),
+		"damage": float(s.global_damage),
+		"pickup": int(s.pick_up_range),
+		"hp": int(s.hp),
+		"max_hp": int(s.max_hp),
+		"armor": int(s.hurt_resis),
+	}
+	var hc = p.get("health_component")
+	if hc != null:
+		out["armor_cap"] = float(hc.get("armor_cap"))
+	return out
+
+
+func get_coin() -> int:
+	var p = get_player()
+	if p == null or p.get("stats") == null:
+		return -1
+	return int(p.stats.coin)
+
+
+func get_pyroxenes() -> int:
+	return int(PlayerData.player_pyroxenes)
 
 
 func is_locked() -> bool:
@@ -188,16 +259,91 @@ func unlock_all() -> void:
 	var n_char := _unlock_characters()
 	var n_cloth := _unlock_clothes()
 	var n_support := _unlock_supports()
-	_unlock_groups()
+	var n_group := _unlock_groups()
 	Game.save_playerdata()
 	GameEvents.emit_check_data()
-	notice.emit("已解锁：角色 %d / 服装 %d / 支援 %d" % [n_char, n_cloth, n_support])
+	notice.emit("已解锁：角色 %d / 服装 %d / 支援 %d / 社团 %d" % [n_char, n_cloth, n_support, n_group])
 	state_changed.emit()
+
+
+## 解锁进度（拥有 / 总数），用于「解锁」页的进度展示。
+func unlock_progress() -> Dictionary:
+	return {
+		"characters": _progress_characters(),
+		"clothes": _progress_clothes(),
+		"supports": _progress_supports(),
+		"groups": _progress_groups(),
+	}
+
+
+func _progress_groups() -> Dictionary:
+	var ids := {}
+	for s in _all_societies():
+		if s != null:
+			var gid := str(s.get("group_id", ""))
+			if gid != "":
+				ids[gid] = true
+	var owned := 0
+	for gid in ids.keys():
+		if PlayerData.group.has(gid):
+			owned += 1
+	return {"owned": owned, "total": ids.size()}
+
+
+## 本体角色 + Mod 角色（本体角色不在 ModAPI.get_characters() 里）。
+func _all_character_cards() -> Array:
+	var cards := []
+	cards.append_array(ModAPI.get_base_characters())
+	cards.append_array(ModAPI.get_characters())
+	return cards
+
+
+func _progress_characters() -> Dictionary:
+	var ids := {}
+	for card in _all_character_cards():
+		if card != null:
+			ids[str(card.get("id"))] = true
+	var owned := 0
+	for id in ids.keys():
+		if PlayerData.character.has(id):
+			owned += 1
+	return {"owned": owned, "total": ids.size()}
+
+
+func _progress_clothes() -> Dictionary:
+	var ids := {}
+	for card in _all_cloth_cards():
+		if card == null:
+			continue
+		var cid := str(card.get("id"))
+		if cid != "":
+			ids[cid] = true
+	var owned_ids := {}
+	for key in PlayerData.clothes_group.keys():
+		for cid in PlayerData.clothes_group[key]:
+			owned_ids[str(cid)] = true
+	var owned := 0
+	for cid in ids.keys():
+		if owned_ids.has(cid):
+			owned += 1
+	return {"owned": owned, "total": ids.size()}
+
+
+func _progress_supports() -> Dictionary:
+	var ids := {}
+	for card in SupportData.support_pool:
+		if card != null:
+			ids[str(card.get("support_id"))] = true
+	var owned := 0
+	for sid in ids.keys():
+		if SupportData.support_data.has(sid):
+			owned += 1
+	return {"owned": owned, "total": ids.size()}
 
 
 func _unlock_characters() -> int:
 	var added := 0
-	for card in ModAPI.get_characters():
+	for card in _all_character_cards():
 		if card == null:
 			continue
 		if not PlayerData.character.has(card.id):
@@ -206,20 +352,32 @@ func _unlock_characters() -> int:
 	return added
 
 
-func _unlock_groups() -> void:
-	var societies := []
-	societies.append_array(ModAPI.get_base_societies())
-	societies.append_array(ModAPI.get_societies())
-	for s in societies:
+func _unlock_groups() -> int:
+	var added := 0
+	for s in _all_societies():
 		var gid := str(s.get("group_id", ""))
 		if gid != "" and not PlayerData.group.has(gid):
 			PlayerData.group.push_back(gid)
+			added += 1
+	return added
 
 
-func _unlock_clothes() -> int:
+func _all_societies() -> Array:
+	var societies := []
+	societies.append_array(ModAPI.get_base_societies())
+	societies.append_array(ModAPI.get_societies())
+	return societies
+
+
+func _all_cloth_cards() -> Array:
 	var cards := []
 	cards.append_array(ModAPI.get_content("clothes"))
 	cards.append_array(_load_dir_cards("res://resources/clothes", "ClothesCard", true))
+	return cards
+
+
+func _unlock_clothes() -> int:
+	var cards := _all_cloth_cards()
 	var added := 0
 	for card in cards:
 		if card == null:
